@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Escenario 3D estilo Homero</title>
+  <title>Escenario 3D Avanzado</title>
   <style>
     body {
       margin: 0;
@@ -16,98 +16,154 @@
 </head>
 <body>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.152.2/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/TextureLoader.js"></script>
   <script>
     // Configuración básica de la escena
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Crear cuadrícula verde
-    const gridHelper = new THREE.GridHelper(100, 100, 0x00ff00, 0x00ff00); // Líneas verdes
-    scene.add(gridHelper);
+    // Crear malla del suelo dinámica
+    const gridSize = 100;
+    const gridSegments = 50;
+    const planeGeometry = new THREE.PlaneGeometry(gridSize, gridSize, gridSegments, gridSegments);
+    const planeMaterial = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,
+      wireframe: true,
+    });
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    plane.rotation.x = -Math.PI / 2; // Colocar horizontalmente
+    scene.add(plane);
 
-    // Añadir objetos geométricos con colores y movimiento
-    const geometries = [
-      new THREE.BoxGeometry(2, 2, 2), // 2/3 partes más grandes
-      new THREE.SphereGeometry(1, 32, 32),
-      new THREE.ConeGeometry(1, 2, 32)
+    const originalVertices = planeGeometry.attributes.position.array.slice();
+
+    // Fondo estrellado
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 1000;
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      starPositions[i * 3] = (Math.random() - 0.5) * 500;
+      starPositions[i * 3 + 1] = (Math.random() - 0.5) * 500;
+      starPositions[i * 3 + 2] = (Math.random() - 0.5) * 500;
+    }
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5 });
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+
+    // Añadir texturas
+    const textureLoader = new THREE.TextureLoader();
+    const textures = [
+      textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg'),
+      textureLoader.load('https://threejs.org/examples/textures/uv_grid_opengl.jpg'),
+      textureLoader.load('https://threejs.org/examples/textures/earth_atmos_2048.jpg')
     ];
 
-    const materials = [
-      new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x440000 }), // Rojo brillante
-      new THREE.MeshStandardMaterial({ color: 0x0000ff, emissive: 0x000044 }), // Azul brillante
-      new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x444400 })  // Amarillo brillante
+    // Añadir objetos geométricos con movimiento y texturas dinámicas
+    const geometries = [
+      new THREE.BoxGeometry(2, 2, 2),
+      new THREE.SphereGeometry(1, 32, 32),
+      new THREE.ConeGeometry(1, 2, 32)
     ];
 
     const objects = [];
     const directions = [];
 
-    for (let i = 0; i < 20; i++) {
+    function addObject() {
       const geometry = geometries[Math.floor(Math.random() * geometries.length)];
-      const material = materials[Math.floor(Math.random() * materials.length)];
+      const texture = textures[Math.floor(Math.random() * textures.length)];
+      const material = new THREE.MeshStandardMaterial({ map: texture });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(
         (Math.random() - 0.5) * 50,
-        Math.random() * 25 + 1, // Inicia por encima de la malla
+        Math.random() * 50 + 50, // Comenzar desde arriba
         (Math.random() - 0.5) * 50
       );
-      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
       scene.add(mesh);
       objects.push(mesh);
 
       // Direcciones iniciales aleatorias
       directions.push({
         x: (Math.random() - 0.5) * 0.1,
-        y: (Math.random() - 0.5) * 0.1,
+        y: -Math.random() * 0.2, // Caída por gravedad
         z: (Math.random() - 0.5) * 0.1
       });
     }
 
-    // Cargar modelo de Homero
-    const loader = new THREE.GLTFLoader();
-    loader.load(
-      'homero.glb', // Ruta del archivo 3D
-      (gltf) => {
-        const model = gltf.scene; // Carga la escena del modelo
-        model.position.set(0, 0, 0); // Posición inicial del modelo
-        model.scale.set(3, 3, 3); // Escala del modelo
-        scene.add(model); // Añade el modelo a la escena
-      },
-      undefined,
-      (error) => {
-        console.error('Error al cargar el modelo:', error);
-      }
-    );
+    for (let i = 0; i < 10; i++) {
+      addObject();
+    }
 
-    // Iluminación
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
+    // Cargar modelo GLB de Homero
+    const gltfLoader = new THREE.GLTFLoader();
+    let homer;
+    gltfLoader.load('homero.glb', (gltf) => {
+      homer = gltf.scene;
+      homer.scale.set(5, 5, 5); // Ajustar tamaño de Homero
+      homer.position.set(0, 0, 0); // Posicionar en el centro
+      scene.add(homer);
+    });
 
-    const pointLight = new THREE.PointLight(0xffffff, 1);
-    pointLight.position.set(10, 10, 10);
-    scene.add(pointLight);
-
-    // Añadir luces móviles
+    // Luces dinámicas sobre la malla
     const movingLights = [];
-    for (let i = 0; i < 3; i++) {
-      const light = new THREE.PointLight(0xffffff, 1, 50);
+    for (let i = 0; i < 5; i++) {
+      const light = new THREE.PointLight(0xff0000, 2, 10); // Luz roja brillante
       light.position.set(
-        (Math.random() - 0.5) * 50,
-        (Math.random() - 0.5) * 50,
-        (Math.random() - 0.5) * 50
+        (Math.random() - 0.5) * gridSize,
+        1,
+        (Math.random() - 0.5) * gridSize
       );
       scene.add(light);
       movingLights.push(light);
     }
 
+    // Iluminación ambiental
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
     // Controles de cámara
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    camera.position.set(0, 10, 20);
+    camera.position.set(0, 10, 50);
     controls.update();
+
+    // Controles de movimiento para Homero
+    const keys = { w: false, a: false, s: false, d: false, e:false, q: false};
+    window.addEventListener('keydown', (event) => {
+      if (event.key in keys) keys[event.key] = true;
+    });
+    window.addEventListener('keyup', (event) => {
+      if (event.key in keys) keys[event.key] = false;
+    });
+
+    function moveHomer() {
+  if (!homer) return;
+
+  const speed = 0.2;
+  const direction = new THREE.Vector3();
+
+  // Movimiento hacia adelante y atrás
+  if (keys.w) direction.z += speed; // Adelante
+  if (keys.s) direction.z -= speed; // Atrás
+
+  // Movimiento hacia los lados
+  if (keys.a) direction.x -= speed; // Izquierda
+  if (keys.d) direction.x += speed; // Derecha
+
+  // Rotar el vector de movimiento según la rotación actual
+  direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), homer.rotation.y);
+
+  // Aplicar el movimiento
+  homer.position.add(direction);
+
+  // Rotaciones
+  if (keys.e) homer.rotation.y += Math.PI / 180; // Rotar 1° hacia la derecha
+  if (keys.q) homer.rotation.y -= Math.PI / 180; // Rotar 1° hacia la izquierda
+}
+
 
     // Animación
     function animate() {
@@ -119,29 +175,40 @@
         obj.position.y += directions[index].y;
         obj.position.z += directions[index].z;
 
-        // Rebote en límites horizontales
-        if (obj.position.x > 50 || obj.position.x < -50) directions[index].x *= -1;
-        if (obj.position.z > 50 || obj.position.z < -50) directions[index].z *= -1;
-
         // Rebote en la malla
-        if (obj.position.y < 0.5) {
-          obj.position.y = 0.5; // Asegurarse de que no atraviese la malla
-          directions[index].y *= -1;
-        } else if (obj.position.y > 25) {
-          directions[index].y *= -1;
+        if (obj.position.y <= 0) {
+          obj.position.y = 0.1; // Evitar que pase por debajo
+          directions[index].y *= -1; // Rebote
         }
 
-        // Rotación constante
+        // Rebote en los bordes del plano (XY)
+        if (obj.position.x > 50 || obj.position.x < -50) directions[index].x *= -1;
+        if (obj.position.z > 50 || obj.position.z < -50) {
+          scene.remove(obj); // Eliminar objeto al salir
+          objects.splice(index, 1);
+          directions.splice(index, 1);
+        }
+
         obj.rotation.x += 0.01;
         obj.rotation.y += 0.01;
       });
 
-      // Movimiento de luces
+      // Añadir nuevos objetos
+      if (Math.random() < 0.02) {
+        addObject();
+      }
+
+      // Movimiento de las luces
       movingLights.forEach((light) => {
         light.position.x += (Math.random() - 0.5) * 0.5;
-        light.position.y += (Math.random() - 0.5) * 0.5;
         light.position.z += (Math.random() - 0.5) * 0.5;
       });
+
+      // Animar estrellas
+      stars.rotation.y += 0.001;
+
+      // Mover Homero
+      moveHomer();
 
       controls.update();
       renderer.render(scene, camera);
